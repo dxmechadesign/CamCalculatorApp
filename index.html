@@ -472,15 +472,20 @@
                 case 'CY': // サイクロイド曲線
                     return phi - Math.sin(2 * Math.PI * phi) / (2 * Math.PI);
                 case 'MT': // 変形台形曲線
-                    if (phi < 0.125) {
+                    // シンプルな変形台形曲線
+                    if (phi < 0.25) {
+                        // 加速区間（2次曲線）
                         return 2 * phi * phi;
-                    } else if (phi < 0.875) {
-                        return 0.25 + (phi - 0.125);
+                    } else if (phi < 0.75) {
+                        // 等速区間（直線）
+                        // phi=0.25のとき0.125、phi=0.75のとき0.875になるような直線
+                        return 0.125 + (phi - 0.25) * 1.5;
                     } else {
+                        // 減速区間（2次曲線）
                         return 1 - 2 * (1 - phi) * (1 - phi);
                     }
                 case 'MS': // 変形正弦曲線
-                    return (phi - Math.sin(2 * Math.PI * phi) / (2 * Math.PI));
+                    return 0.5 * (1 - Math.cos(Math.PI * phi));
                 default:
                     return phi;
             }
