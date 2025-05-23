@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>カム形状計算＆DXF生成ツール</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1200px;
+            width: 100%;
+            padding: 40px;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+        }
+
+        .input-panel {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .unit {
+            display: inline-block;
+            margin-left: 8px;
+            color: #888;
+            font-size: 14px;
+        }
+
+        .curve-type {
+            margin: 25px 0;
+        }
+
+        .curve-type h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .radio-label {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .radio-label:hover {
+            border-color: #667eea;
+            transform: translateX(5px);
+        }
+
+        input[type="radio"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        input[type="radio"]:checked + span {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .calc-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .calc-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .export-btn {
+            background: #28a745;
+            color: white;
+        }
+
+        .export-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(40, 167, 69, 0.3);
+        }
+
+        .export-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .canvas-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100%;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            display: block;
+        }
+
+        .data-display {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .info-text {
+            color: #666;
+            font-size: 13px;
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff3cd;
+            border-radius: 5px;
+            border-left: 4px solid #ffc107;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>カム形状計算＆DXF生成ツール</h1>
+        
+        <div class="main-content">
+            <div class="input-panel">
+                <h2>パラメータ設定</h2>
+                
+                <div class="input-group">
+                    <label for="camRadius">カム半径<span class="unit">mm</span></label>
+                    <input type="number" id="camRadius" value="50" min="1">
+                </div>
+                
+                <div class="input-group">
+                    <label for="rollerRadius">コロ半径<span class="unit">mm</span></label>
+                    <input type="number" id="rollerRadius" value="10" min="1">
+                </div>
+                
+                <div class="input-group">
+                    <label for="stroke">移動量<span class="unit">mm</span></label>
+                    <input type="number" id="stroke" value="20" min="1">
+                </div>
+                
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #e0e0e0;">
+                
+                <h3>角度設定</h3>
+                <div class="input-group">
+                    <label for="theta1">θ1 (上昇開始角)<span class="unit">度</span></label>
+                    <input type="number" id="theta1" value="0" min="0" max="360" step="0.1">
+                </div>
+                
+                <div class="input-group">
+                    <label for="theta2">θ2 (上昇終了角)<span class="unit">度</span></label>
+                    <input type="number" id="theta2" value="90" min="0" max="360" step="0.1">
+                </div>
+                
+                <div class="input-group">
+                    <label for="theta3">θ3 (下降開始角)<span class="unit">度</span></label>
+                    <input type="number" id="theta3" value="180" min="0" max="360" step="0.1">
+                </div>
+                
+                <div class="input-group">
+                    <label for="theta4">θ4 (下降終了角)<span class="unit">度</span></label>
+                    <input type="number" id="theta4" value="270" min="0" max="360" step="0.1">
+                </div>
+                
+                <div class="info-text">
+                    注: 0 ＜ θ1 ＜ θ2 ＜ θ3 ＜ θ4 ＜ 360
+                </div>
+                
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #e0e0e0;">
+                
+                <div class="input-group">
+                    <label for="angleStep">計算角度刻み<span class="unit">度</span></label>
+                    <input type="number" id="angleStep" value="1" min="0.1" max="1" step="0.1">
+                    <div class="info-text" style="margin-top: 5px; font-size: 12px;">
+                        座標計算の角度間隔（0.1～1度）
+                    </div>
+                </div>
+                
+                <div class="curve-type">
+                    <h3>曲線タイプ</h3>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="curveType" value="CY" checked>
+                            <span>サイクロイド曲線（CY）</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="curveType" value="MT">
+                            <span>変形台形曲線（MT）</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="curveType" value="MS">
+                            <span>変形正弦曲線（MS）</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button class="calc-btn" onclick="calculateCam()">計算実行</button>
+                    <button class="export-btn" onclick="exportDXF()" id="exportBtn" disabled>DXF出力</button>
+                </div>
+                
+                <div class="button-group" style="margin-top: 15px;">
+                    <button class="calc-btn" onclick="toggleAnimation()" id="animBtn" disabled>
+                        <span id="animBtnText">アニメーション開始</span>
+                    </button>
+                    <button class="calc-btn" onclick="resetAnimation()" id="resetBtn" disabled>リセット</button>
+                </div>
+                
+                <div class="input-group" style="margin-top: 20px;">
+                    <label for="animSpeed">回転速度</label>
+                    <input type="range" id="animSpeed" min="0.1" max="5" step="0.1" value="1" style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #888;">
+                        <span>遅い</span>
+                        <span>速い</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="camCanvas" width="600" height="500"></canvas>
+                <div class="data-display" id="dataDisplay">
+                    ここにデータが表示されます
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let camPoints = [];
+        let canvas, ctx;
+        let animationId = null;
+        let currentRotation = 0;
+        let isAnimating = false;
+
+        window.onload = function() {
+            canvas = document.getElementById('camCanvas');
+            ctx = canvas.getContext('2d');
+            // Canvas のサイズを設定
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+        };
+
+        function resizeCanvas() {
+            canvas = document.getElementById('camCanvas');
+            const container = canvas.parentElement;
+            const rect = container.getBoundingClientRect();
+            canvas.width = rect.width - 40; // padding分を引く
+            canvas.height = 500;
+        }
+
+        function validateInputs() {
+            const theta1 = parseFloat(document.getElementById('theta1').value);
+            const theta2 = parseFloat(document.getElementById('theta2').value);
+            const theta3 = parseFloat(document.getElementById('theta3').value);
+            const theta4 = parseFloat(document.getElementById('theta4').value);
+
+            if (!(0 <= theta1 && theta1 < theta2 && theta2 < theta3 && theta3 < theta4 && theta4 <= 360)) {
+                alert('角度の条件を満たしてください: 0 ≤ θ1 < θ2 < θ3 < θ4 ≤ 360');
+                return false;
+            }
+            return true;
+        }
+
+        function calculateCam() {
+            if (!validateInputs()) return;
+
+            const camRadius = parseFloat(document.getElementById('camRadius').value);
+            const rollerRadius = parseFloat(document.getElementById('rollerRadius').value);
+            const stroke = parseFloat(document.getElementById('stroke').value);
+            const theta1 = parseFloat(document.getElementById('theta1').value);
+            const theta2 = parseFloat(document.getElementById('theta2').value);
+            const theta3 = parseFloat(document.getElementById('theta3').value);
+            const theta4 = parseFloat(document.getElementById('theta4').value);
+            const curveType = document.querySelector('input[name="curveType"]:checked').value;
+            const angleStep = parseFloat(document.getElementById('angleStep').value);
+
+            camPoints = [];
+            let dataText = "角度(度)\t半径(mm)\tX座標\tY座標\n";
+            
+            // 細かい刻みで計算（描画用）
+            for (let angle = 0; angle <= 360; angle += 0.5) {
+                let h = 0;
+                
+                if (angle >= theta1 && angle <= theta2) {
+                    // 上昇区間
+                    const phi = (angle - theta1) / (theta2 - theta1);
+                    h = stroke * getCurveValue(phi, curveType, true);
+                } else if (angle >= theta3 && angle <= theta4) {
+                    // 下降区間
+                    const phi = (angle - theta3) / (theta4 - theta3);
+                    h = stroke * (1 - getCurveValue(phi, curveType, false));
+                } else if (angle > theta2 && angle < theta3) {
+                    // 停留区間（上）
+                    h = stroke;
+                } else {
+                    // 停留区間（下）
+                    h = 0;
+                }
+                
+                const r = camRadius + h;
+                const rad = angle * Math.PI / 180;
+                const x = r * Math.cos(rad);
+                const y = r * Math.sin(rad);
+                
+                camPoints.push({ angle, r, x, y, h });
+            }
+            
+            // 指定された刻みでデータ表示
+            for (let angle = 0; angle <= 360; angle += angleStep) {
+                let h = 0;
+                
+                if (angle >= theta1 && angle <= theta2) {
+                    // 上昇区間
+                    const phi = (angle - theta1) / (theta2 - theta1);
+                    h = stroke * getCurveValue(phi, curveType, true);
+                } else if (angle >= theta3 && angle <= theta4) {
+                    // 下降区間
+                    const phi = (angle - theta3) / (theta4 - theta3);
+                    h = stroke * (1 - getCurveValue(phi, curveType, false));
+                } else if (angle > theta2 && angle < theta3) {
+                    // 停留区間（上）
+                    h = stroke;
+                } else {
+                    // 停留区間（下）
+                    h = 0;
+                }
+                
+                const r = camRadius + h;
+                const rad = angle * Math.PI / 180;
+                const x = r * Math.cos(rad);
+                const y = r * Math.sin(rad);
+                
+                dataText += `${angle.toFixed(1)}\t${r.toFixed(2)}\t${x.toFixed(2)}\t${y.toFixed(2)}\n`;
+            }
+            
+            drawCam(0);
+            document.getElementById('dataDisplay').innerText = dataText;
+            document.getElementById('exportBtn').disabled = false;
+            document.getElementById('animBtn').disabled = false;
+            document.getElementById('resetBtn').disabled = false;
+        }
+
+        function getCurveValue(phi, type, isRising) {
+            switch (type) {
+                case 'CY': // サイクロイド曲線
+                    return phi - Math.sin(2 * Math.PI * phi) / (2 * Math.PI);
+                case 'MT': // 変形台形曲線
+                    if (phi < 0.125) {
+                        return 2 * phi * phi;
+                    } else if (phi < 0.875) {
+                        return 0.25 + (phi - 0.125);
+                    } else {
+                        return 1 - 2 * (1 - phi) * (1 - phi);
+                    }
+                case 'MS': // 変形正弦曲線
+                    return (phi - Math.sin(2 * Math.PI * phi) / (2 * Math.PI));
+                default:
+                    return phi;
+            }
+        }
+
+        function drawCam(rotation = 0) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const scale = Math.min(canvas.width, canvas.height) / 300;
+            const camRadius = parseFloat(document.getElementById('camRadius').value);
+            const rollerRadius = parseFloat(document.getElementById('rollerRadius').value);
+            
+            // グリッド描画
+            ctx.strokeStyle = '#f0f0f0';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+            for (let i = 0; i < canvas.height; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(canvas.width, i);
+                ctx.stroke();
+            }
+            
+            // 中心線
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX, 0);
+            ctx.lineTo(centerX, canvas.height);
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(canvas.width, centerY);
+            ctx.stroke();
+            
+            // 回転変換を保存
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(rotation * Math.PI / 180);
+            
+            // カム形状描画
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            
+            camPoints.forEach((point, i) => {
+                // Y座標の符号を修正（Canvasは下が正なので、反転不要）
+                const x = point.x * scale;
+                const y = point.y * scale;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            
+            ctx.closePath();
+            ctx.stroke();
+            
+            // 中心点
+            ctx.fillStyle = '#764ba2';
+            ctx.beginPath();
+            ctx.arc(0, 0, 5, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // 回転変換を元に戻す
+            ctx.restore();
+            
+            // コロの描画（回転しない、垂直移動のみ）
+            // カムの座標系：0度は右（3時の方向）、90度は下（6時の方向）
+            // コロは上部（12時の方向）に固定 = 270度の位置
+            // カムが時計回りにrotation度回転したとき、
+            // コロと接触するカム上の点は元の(270-rotation)度の位置
+            let contactAngle = 270 - rotation;
+            while (contactAngle < 0) contactAngle += 360;
+            while (contactAngle >= 360) contactAngle -= 360;
+            
+            // 接触角度に最も近いカムポイントを探す
+            let currentR = camRadius;
+            let minDiff = 360;
+            for (let i = 0; i < camPoints.length; i++) {
+                const diff = Math.abs(camPoints[i].angle - contactAngle);
+                const diff2 = Math.abs(camPoints[i].angle - contactAngle + 360);
+                const diff3 = Math.abs(camPoints[i].angle - contactAngle - 360);
+                const actualDiff = Math.min(diff, diff2, diff3);
+                
+                if (actualDiff < minDiff) {
+                    minDiff = actualDiff;
+                    currentR = camPoints[i].r;
+                }
+            }
+            
+            // コロの位置（固定X座標、Y座標のみ変化）
+            const rollerX = centerX;
+            const rollerY = centerY - (currentR + rollerRadius) * scale;
+            
+            // ガイドレール描画
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(rollerX - 30, centerY - (camRadius - 10) * scale);
+            ctx.lineTo(rollerX - 30, centerY - (camRadius + parseFloat(document.getElementById('stroke').value) + rollerRadius + 20) * scale);
+            ctx.moveTo(rollerX + 30, centerY - (camRadius - 10) * scale);
+            ctx.lineTo(rollerX + 30, centerY - (camRadius + parseFloat(document.getElementById('stroke').value) + rollerRadius + 20) * scale);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // コロの外円
+            ctx.strokeStyle = '#e74c3c';
+            ctx.fillStyle = 'rgba(231, 76, 60, 0.2)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(rollerX, rollerY, rollerRadius * scale, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.stroke();
+            
+            // コロの中心点
+            ctx.fillStyle = '#e74c3c';
+            ctx.beginPath();
+            ctx.arc(rollerX, rollerY, 3, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // カム中心から接触点への線
+            ctx.save();
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            
+            // 接触点は常に真上（90度の位置）
+            const contactX = centerX;
+            const contactY = centerY - currentR * scale;
+            
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(contactX, contactY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+            
+            // コロの移動量表示
+            const currentH = currentR - camRadius;
+            ctx.fillStyle = '#333';
+            ctx.font = '14px sans-serif';
+            ctx.fillText(`移動量: ${currentH.toFixed(1)}mm`, 10, 30);
+            ctx.fillText(`回転角: ${rotation.toFixed(1)}°`, 10, 50);
+            ctx.fillText(`カム接触部の角度: ${contactAngle.toFixed(1)}°`, 10, 70);
+        }
+
+        function animate() {
+            if (!isAnimating) return;
+            
+            const speed = parseFloat(document.getElementById('animSpeed').value);
+            currentRotation = (currentRotation + speed) % 360;
+            
+            drawCam(currentRotation);
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function toggleAnimation() {
+            isAnimating = !isAnimating;
+            const btn = document.getElementById('animBtn');
+            const btnText = document.getElementById('animBtnText');
+            
+            if (isAnimating) {
+                btnText.textContent = 'アニメーション停止';
+                animate();
+            } else {
+                btnText.textContent = 'アニメーション開始';
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                    animationId = null;
+                }
+            }
+        }
+
+        function resetAnimation() {
+            isAnimating = false;
+            currentRotation = 0;
+            document.getElementById('animBtnText').textContent = 'アニメーション開始';
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            drawCam(0);
+        }
+
+        function exportDXF() {
+            if (camPoints.length === 0) {
+                alert('先に計算を実行してください');
+                return;
+            }
+            
+            let dxfContent = '0\nSECTION\n2\nENTITIES\n';
+            
+            // ポリライン開始
+            dxfContent += '0\nPOLYLINE\n8\n0\n66\n1\n70\n1\n';
+            
+            // 頂点データ
+            camPoints.forEach(point => {
+                dxfContent += `0\nVERTEX\n8\n0\n10\n${point.x.toFixed(3)}\n20\n${point.y.toFixed(3)}\n30\n0\n`;
+            });
+            
+            // ポリライン終了
+            dxfContent += '0\nSEQEND\n';
+            
+            // セクション終了
+            dxfContent += '0\nENDSEC\n0\nEOF\n';
+            
+            // ダウンロード
+            const blob = new Blob([dxfContent], { type: 'application/dxf' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'cam_profile.dxf';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
